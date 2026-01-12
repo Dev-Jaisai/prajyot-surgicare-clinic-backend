@@ -112,7 +112,7 @@ public class DoctorDashboardService {
             }
         });
     }
-
+    @Transactional(readOnly = true)
     public List<MedicalHistoryResponse> getPatientHistory(Long patientId) {
         return visitRepository.findByPatientIdOrderByVisitDateDesc(patientId)
                 .stream()
