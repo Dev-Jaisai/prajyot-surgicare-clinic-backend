@@ -12,96 +12,85 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
+import java.util.Optional;
+
 @Component
 @RequiredArgsConstructor
 public class DataSeeder implements CommandLineRunner {
 
     private final UserRepository userRepository;
     private final ClinicRepository clinicRepository;
-    private final DoctorRepository doctorRepository; // ✅ Doctor Repo ॲड करा
+    private final DoctorRepository doctorRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Override
     public void run(String... args) throws Exception {
 
-        // 1. Create Clinics (जर नसतील तर)
-        Clinic wakad = clinicRepository.findById(1L).orElseGet(() -> {
-            Clinic c = new Clinic();
-            c.setName("Wakad");
-            c.setAddress("Wakad, Pune");
-            return clinicRepository.save(c);
-        });
+        System.out.println("🌱 Seeding Data...");
 
-        Clinic mahalunge = clinicRepository.findById(2L).orElseGet(() -> {
-            Clinic c = new Clinic();
-            c.setName("Mahalunge");
-            c.setAddress("Mahalunge, Pune");
-            return clinicRepository.save(c);
-        });
+        // 1. Create Clinics (Check by Name to avoid duplicates)
+        Clinic wakad = createClinicIfNotFound("Wakad", "Wakad, Pune");
+        Clinic mahalunge = createClinicIfNotFound("Mahalunge", "Mahalunge, Pune");
 
-        // 2. Create Doctors (जर नसतील तर) & Save them FIRST!
-        Doctor docNikhil = doctorRepository.findById(1L).orElseGet(() -> {
-            Doctor d = new Doctor();
-            d.setName("Dr. Nikhil (Ortho)");
-            return doctorRepository.save(d); // ✅ Save Doctor
-        });
+        // 2. Create Doctors
+        Doctor docNikhil = createDoctorIfNotFound("Dr. Nikhil (Ortho)");
+        Doctor docPriyanka = createDoctorIfNotFound("Dr. Priyanka (ENT)");
 
-        Doctor docPriyanka = doctorRepository.findById(2L).orElseGet(() -> {
-            Doctor d = new Doctor();
-            d.setName("Dr. Priyanka (ENT)");
-            return doctorRepository.save(d); // ✅ Save Doctor
-        });
+        // 3. Create Users
 
-        // 3. Create Users & LINK THEM
+        // A. Receptionist Roshani
+        createUserIfNotFound("roshani", "w123", Role.RECEPTIONIST, wakad, null, "Roshani");
 
-        // A. Receptionist Roshani (Wakad)
-        if (userRepository.findByUsername("roshani").isEmpty()) {
+        // B. Receptionist Pooja
+        createUserIfNotFound("pooja", "m123", Role.RECEPTIONIST, mahalunge, null, "Pooja");
+
+        // C. Dr. Nikhil (User)
+        createUserIfNotFound("nikhil", "doc123", Role.DOCTOR, wakad, docNikhil, "Dr. Nikhil");
+
+        // D. Dr. Priyanka (User)
+        createUserIfNotFound("priyanka", "doc123", Role.DOCTOR, mahalunge, docPriyanka, "Dr. Priyanka");
+
+        System.out.println("✅ Data Seeding Completed!");
+    }
+
+    // --- Helper Methods ---
+
+    private Clinic createClinicIfNotFound(String name, String address) {
+        // ID 1, 2 शोधण्यापेक्षा नावाने शोधणे Safe आहे
+        return clinicRepository.findAll().stream()
+                .filter(c -> c.getName().equals(name))
+                .findFirst()
+                .orElseGet(() -> {
+                    Clinic c = new Clinic();
+                    c.setName(name);
+                    c.setAddress(address);
+                    return clinicRepository.save(c);
+                });
+    }
+
+    private Doctor createDoctorIfNotFound(String name) {
+        return doctorRepository.findAll().stream()
+                .filter(d -> d.getName().equals(name))
+                .findFirst()
+                .orElseGet(() -> {
+                    Doctor d = new Doctor();
+                    d.setName(name);
+                    return doctorRepository.save(d);
+                });
+    }
+
+    private void createUserIfNotFound(String username, String password, Role role, Clinic clinic, Doctor doctor, String name) {
+        if (userRepository.findByUsername(username).isEmpty()) {
             User user = User.builder()
-                    .username("roshani")
-                    .password(passwordEncoder.encode("w123"))
-                    .role(Role.RECEPTIONIST)
-                    .clinic(wakad) // ✅ Linked to Wakad
+                    .username(username)
+                    .password(passwordEncoder.encode(password))
+                    .role(role)
+                    .clinic(clinic)
+                    .doctor(doctor)
+                    .name(name)
                     .build();
             userRepository.save(user);
-            System.out.println("✅ User Created: roshani (Wakad)");
-        }
-
-        // B. Receptionist Pooja (Mahalunge)
-        if (userRepository.findByUsername("pooja").isEmpty()) {
-            User user = User.builder()
-                    .username("pooja")
-                    .password(passwordEncoder.encode("m123"))
-                    .role(Role.RECEPTIONIST)
-                    .clinic(mahalunge) // ✅ Linked to Mahalunge
-                    .build();
-            userRepository.save(user);
-            System.out.println("✅ User Created: pooja (Mahalunge)");
-        }
-
-        // C. Dr. Nikhil (User linked to Doctor Entity)
-        if (userRepository.findByUsername("nikhil").isEmpty()) {
-            User user = User.builder()
-                    .username("nikhil")
-                    .password(passwordEncoder.encode("doc123"))
-                    .role(Role.DOCTOR)
-                    .doctor(docNikhil) // 🔥 IMP: Doctor ID Link केला
-                    .name("Dr. Nikhil")
-                    .build();
-            userRepository.save(user);
-            System.out.println("✅ User Created: Dr. Nikhil (Linked to Doc ID 1)");
-        }
-
-        // D. Dr. Priyanka (User linked to Doctor Entity)
-        if (userRepository.findByUsername("priyanka").isEmpty()) {
-            User user = User.builder()
-                    .username("priyanka")
-                    .password(passwordEncoder.encode("doc123"))
-                    .role(Role.DOCTOR)
-                    .doctor(docPriyanka) // 🔥 IMP: Doctor ID Link केला
-                    .name("Dr. Priyanka")
-                    .build();
-            userRepository.save(user);
-            System.out.println("✅ User Created: Dr. Priyanka (Linked to Doc ID 2)");
+            System.out.println("👉 User created: " + username);
         }
     }
 }
