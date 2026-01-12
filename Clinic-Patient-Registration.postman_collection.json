@@ -1,0 +1,127 @@
+{
+  "info": {
+    "_postman_id": "c4b1f9e2-2c9b-4e6a-9c77-91a7e1a9f111",
+    "name": "Clinic \u2013 Patient Management APIs",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Complete patient registration, search, history, and stats APIs for clinic receptionist portal"
+  },
+  "item": [
+    {
+      "name": "Register Patient / Create Visit",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Amit Patil\",\n  \"mobile\": \"9876543210\",\n  \"gender\": \"MALE\",\n  \"age\": 35,\n  \"visitType\": \"OPD\",\n  \"reason\": \"Fever\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/patients/register",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8080",
+          "path": [
+            "api",
+            "patients",
+            "register"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Search Patient by Mobile",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "http://localhost:8080/api/patients/search?mobile=9876543210",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8080",
+          "path": [
+            "api",
+            "patients",
+            "search"
+          ],
+          "query": [
+            {
+              "key": "mobile",
+              "value": "9876543210"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get Patient Visit History",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "http://localhost:8080/api/patients/1/visits",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8080",
+          "path": [
+            "api",
+            "patients",
+            "1",
+            "visits"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Today Registrations Count",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "http://localhost:8080/api/patients/stats/today",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8080",
+          "path": [
+            "api",
+            "patients",
+            "stats",
+            "today"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get All Patients",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "http://localhost:8080/api/patients",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8080",
+          "path": [
+            "api",
+            "patients"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}
