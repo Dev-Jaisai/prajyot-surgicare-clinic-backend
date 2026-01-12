@@ -13,17 +13,13 @@ public class PrescriptionFile {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // ❌ OLD (Causing Issue): @OneToOne
-    // @OneToOne
-    // @JoinColumn(name = "visit_id", unique = true)
-
-    // ✅ NEW (FIX): @ManyToOne (Remove unique=true)
     @ManyToOne
     @JoinColumn(name = "visit_id", nullable = false)
     private Visit visit;
 
     @Lob
-    @Column(columnDefinition = "LONGBLOB")
+    // ❌ OLD: @Column(columnDefinition = "LONGBLOB")  <- हे काढलं
+    // ✅ NEW: फक्त @Lob ठेवा, Postgres आपोआप हँडल करेल
     private byte[] data;
 
     private String fileName;

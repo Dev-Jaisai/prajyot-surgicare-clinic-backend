@@ -54,12 +54,9 @@ public class Visit {
     // 💰 Financials
     private Double consultationFee;
     private Double otherCharges;
-    private Double totalAmount; // Calculated Total (Fee + Other)
-
-    // ✅ NEW: Actually Collected Amount (Final Bill)
+    private Double totalAmount;
     private Double paidAmount;
 
-    // ✅ NEW: List of procedures done (e.g. "X-Ray, Blood Test")
     @Column(columnDefinition = "TEXT")
     private String procedures;
 
@@ -67,11 +64,12 @@ public class Visit {
 
     private Integer queueOrder;
 
-    @Column(name = "is_emergency", nullable = false, columnDefinition = "TINYINT(1) DEFAULT 0")
+    // ❌ OLD: columnDefinition = "TINYINT(1)..."
+    // ✅ NEW: Postgres uses native BOOLEAN
+    @Column(name = "is_emergency", nullable = false)
     private boolean emergency = false;
 
-    // 🔥🔥 NEW FIELD ADDED HERE 🔥🔥
-    @Column(name = "payment_collected", columnDefinition = "TINYINT(1) DEFAULT 0")
+    @Column(name = "payment_collected")
     private boolean paymentCollected = false;
 
     private Integer tokenNumber;
