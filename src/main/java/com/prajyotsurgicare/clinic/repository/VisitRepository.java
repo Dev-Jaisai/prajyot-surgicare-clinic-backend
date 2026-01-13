@@ -15,6 +15,15 @@ public interface VisitRepository extends JpaRepository<Visit, Long> {
 
 // VisitRepository.java
 
+    // 🔥 NEW: Doctor च्या आजच्या एकूण visits (All statuses)
+    @Query("SELECT COUNT(v) FROM Visit v WHERE v.visitDate = :date " +
+            "AND v.clinic.id = :clinicId AND v.doctor.id = :doctorId")
+    long countByVisitDateAndClinicIdAndDoctorId(
+            @Param("date") LocalDate date,
+            @Param("clinicId") Long clinicId,
+            @Param("doctorId") Long doctorId
+    );
+
     List<Visit> findByVisitDateAndClinicIdAndDoctorIdAndStatusInOrderByEmergencyDescTokenNumberAsc(
             LocalDate date,
             Long clinicId,

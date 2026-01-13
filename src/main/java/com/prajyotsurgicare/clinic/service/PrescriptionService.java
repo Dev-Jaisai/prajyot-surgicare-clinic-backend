@@ -20,8 +20,9 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.Base64;
-import java.util.List; // 🔥 Explicitly Import Java List
+import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
@@ -31,26 +32,26 @@ public class PrescriptionService {
     private final PrescriptionFileRepository fileRepository;
     private final VisitRepository visitRepository;
 
+    // =================================================================
     // 1. 👨‍⚕️ DOCTOR: Generate PDF from Text & Stylus
+    // =================================================================
     @Transactional
     public void generateAndSavePdf(Long visitId, String textNote, String stylusImageBase64) {
         try {
-            Visit visit = visitRepository.findById(visitId).orElseThrow();
+            Visit visit = visitRepository.findById(visitId)
+                    .orElseThrow(() -> new RuntimeException("Visit not found: " + visitId));
 
-            // 1. Create PDF Document
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             Document document = new Document(PageSize.A4);
             PdfWriter.getInstance(document, out);
             document.open();
 
-            // 2. Add Header (Clinic Name)
             Font headerFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 18);
             Paragraph header = new Paragraph("PRAJYOT SURGICARE CLINIC", headerFont);
             header.setAlignment(Element.ALIGN_CENTER);
             document.add(header);
-            document.add(new Paragraph("\n")); // Space
+            document.add(new Paragraph("\n"));
 
-            // 3. Add Patient & Doctor Details
             Font boldFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
             document.add(new Paragraph("Date: " + visit.getVisitDate(), boldFont));
             document.add(new Paragraph("Doctor: " + visit.getDoctor().getName()));
@@ -58,26 +59,27 @@ public class PrescriptionService {
             document.add(new Paragraph("-------------------------------------------------------------------"));
             document.add(new Paragraph("\n"));
 
-            // 4. Add Typed Text (Diagnosis/Meds)
             if (textNote != null && !textNote.isEmpty()) {
                 document.add(new Paragraph("Prescription / Notes:", boldFont));
                 document.add(new Paragraph(textNote));
                 document.add(new Paragraph("\n"));
             }
 
-            // 5. Add Stylus Image (Signature/Drawing)
             if (stylusImageBase64 != null && !stylusImageBase64.isEmpty()) {
-                // Base64 to Image
-                String base64Data = stylusImageBase64.split(",")[1]; // Remove "data:image/png;base64," header
-                byte[] imageBytes = Base64.getDecoder().decode(base64Data);
-
-                Image img = Image.getInstance(imageBytes);
-                img.scaleToFit(500, 400); // Resize if too big
-                img.setAlignment(Element.ALIGN_CENTER);
-                document.add(img);
+                try {
+                    String base64Data = stylusImageBase64.contains(",")
+                            ? stylusImageBase64.split(",")[1]
+                            : stylusImageBase64;
+                    byte[] imageBytes = Base64.getDecoder().decode(base64Data);
+                    Image img = Image.getInstance(imageBytes);
+                    img.scaleToFit(500, 400);
+                    img.setAlignment(Element.ALIGN_CENTER);
+                    document.add(img);
+                } catch (Exception e) {
+                    System.err.println("Error adding image to PDF: " + e.getMessage());
+                }
             }
 
-            // 6. Footer
             document.add(new Paragraph("\n\n\n"));
             Paragraph footer = new Paragraph("(Digitally Generated Prescription)", FontFactory.getFont(FontFactory.HELVETICA, 8));
             footer.setAlignment(Element.ALIGN_CENTER);
@@ -85,66 +87,43 @@ public class PrescriptionService {
 
             document.close();
 
-            // 7. Save to DB
-            saveFileToDb(visit, out.toByteArray(), "prescription.pdf", "application/pdf");
+            saveFileToDb(visit, out.toByteArray(), "Prescription_" + visitId + ".pdf", "application/pdf");
 
         } catch (Exception e) {
             throw new RuntimeException("Error generating PDF", e);
         }
     }
 
-    // 2. 👩‍💼 RECEPTIONIST: Upload Manual Photo
+    // =================================================================
+    // 2. 👩‍💼 RECEPTIONIST / DOCTOR: Upload Manual Photo
+    // =================================================================
     @Transactional
     public void uploadPrescriptionImage(Long visitId, MultipartFile file) throws IOException {
-        Visit visit = visitRepository.findById(visitId).orElseThrow();
+        Visit visit = visitRepository.findById(visitId)
+                .orElseThrow(() -> new RuntimeException("Visit not found: " + visitId));
         saveFileToDb(visit, file.getBytes(), file.getOriginalFilename(), file.getContentType());
     }
 
-    // ✅✅ FIXED: Multiple File Support Logic
-    // जुने लॉजिक (Find & Replace) काढले आहे. आता प्रत्येक वेळी नवीन फाईल बनेल.
     private void saveFileToDb(Visit visit, byte[] data, String name, String type) {
-
-        PrescriptionFile file = new PrescriptionFile(); // 🔥 Always New Object
-
+        PrescriptionFile file = new PrescriptionFile();
         file.setVisit(visit);
         file.setData(data);
         file.setFileName(name);
         file.setFileType(type);
-
-        // जर Entity मध्ये uploadedAt फील्ड असेल तर ते सेट करा (Optional)
-        // file.setUploadedAt(LocalDateTime.now());
-
-        fileRepository.save(file); // 🔥 New Entry Created
+        file.setUploadedAt(LocalDateTime.now());
+        fileRepository.save(file);
     }
 
-    // 3. ✅ History: Get Recent Prescriptions
-    public List<PrescriptionView> getRecentPrescriptions(Long patientId) {
-        List<PrescriptionFile> files = fileRepository.findRecentByPatientId(patientId);
+    // =================================================================
+    // 3. ✅ GET DATA METHODS
+    // =================================================================
 
-        return files.stream()
-                .limit(10) // Last 10 prescriptions
-                .map(file -> {
-                    // Extract date safely
-                    String dateStr = (file.getVisit() != null && file.getVisit().getVisitDate() != null)
-                            ? file.getVisit().getVisitDate().toString()
-                            : "Unknown Date";
-
-                    return new PrescriptionView(
-                            file.getId(),
-                            dateStr, // Maps to 'date' field in DTO
-                            file.getFileName()
-                    );
-                })
-                .collect(Collectors.toList());
-    }
-
-    // 4. ✅ View File: Get Single File Content
+    @Transactional(readOnly = true)
     public PrescriptionFile getFile(Long fileId) {
         return fileRepository.findById(fileId)
                 .orElseThrow(() -> new RuntimeException("Prescription file not found with id: " + fileId));
     }
 
-    // 5. ✅ List: Get All IDs for a Visit
     public List<Long> getPrescriptionIds(Long visitId) {
         return fileRepository.findAllByVisitId(visitId)
                 .stream()
@@ -152,13 +131,28 @@ public class PrescriptionService {
                 .collect(Collectors.toList());
     }
 
-    // 6. ⚠️ Angular Compatibility: Get Latest File for Visit (Old Logic Support)
+    @Transactional(readOnly = true)
+    public List<PrescriptionView> getRecentPrescriptions(Long patientId) {
+        List<PrescriptionFile> files = fileRepository.findRecentByPatientId(patientId);
+        return files.stream()
+                .limit(10)
+                .map(file -> {
+                    String dateStr = (file.getVisit() != null && file.getVisit().getVisitDate() != null)
+                            ? file.getVisit().getVisitDate().toString()
+                            : "Unknown Date";
+                    return new PrescriptionView(file.getId(), dateStr, file.getFileName());
+                })
+                .collect(Collectors.toList());
+    }
+
+    // 🔥🔥 Fix: हे मिसिंग फंक्शन ॲड केले आहे
+    @Transactional(readOnly = true)
     public PrescriptionFile getLatestFileByVisitId(Long visitId) {
         List<PrescriptionFile> files = fileRepository.findAllByVisitId(visitId);
         if (files.isEmpty()) {
             throw new RuntimeException("No file found for visit " + visitId);
         }
-        // शेवटची (Latest) फाईल रिटर्न करा (List मधील शेवटचा एलिमेंट)
+        // शेवटची फाईल रिटर्न करा
         return files.get(files.size() - 1);
     }
 }

@@ -2,9 +2,10 @@ package com.prajyotsurgicare.clinic.service;
 
 import com.prajyotsurgicare.clinic.dto.MedicalHistoryResponse;
 import com.prajyotsurgicare.clinic.dto.MedicalInfoRequest;
-import com.prajyotsurgicare.clinic.entity.PrescriptionFile; // Import added
+import com.prajyotsurgicare.clinic.entity.PrescriptionFile;
 import com.prajyotsurgicare.clinic.entity.Visit;
 import com.prajyotsurgicare.clinic.enums.VisitStatus;
+import com.prajyotsurgicare.clinic.enums.VisitType; // ✅ Import VisitType
 import com.prajyotsurgicare.clinic.repository.PrescriptionFileRepository;
 import com.prajyotsurgicare.clinic.repository.VisitRepository;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,9 @@ public class DoctorDashboardService {
     private final WebSocketService webSocketService;
     private final VisitRepository visitRepository;
     private final NotificationService notificationService;
+
+    // 🔥🔥 NEW: PrescriptionService Inject केला
+    private final PrescriptionService prescriptionService;
 
     public List<Map<String, Object>> getDoctorQueue(Long clinicId, Long doctorId, LocalDate date) {
         List<VisitStatus> activeStatuses = Arrays.asList(
@@ -58,8 +62,7 @@ public class DoctorDashboardService {
                     map.put("weight", v.getWeight());
                     map.put("isEmergency", v.isEmergency());
 
-                    // ✅ FIXED: Handle list of files
-                    List<PrescriptionFile> files = fileRepository.findByVisitId(v.getId());
+                    List<PrescriptionFile> files = fileRepository.findAllByVisitId(v.getId());
                     map.put("hasFile", !files.isEmpty());
 
                     return map;
@@ -74,8 +77,10 @@ public class DoctorDashboardService {
         Visit visit = visitRepository.findById(visitId)
                 .orElseThrow(() -> new RuntimeException("Visit not found"));
 
+        // 1. डेटा अपडेट करा
         visit.setDiagnosis(request.getDiagnosis());
         visit.setPrescriptionNote(request.getPrescription());
+
         if (request.getOtherCharges() != null) {
             visit.setOtherCharges(request.getOtherCharges());
         }
@@ -84,6 +89,7 @@ public class DoctorDashboardService {
             visit.setFollowUpDate(request.getFollowUpDate());
         }
 
+        // 2. स्टेटस अपडेट करा
         if (Boolean.TRUE.equals(request.getPaymentCollected())) {
             visit.setStatus(VisitStatus.COMPLETED);
             Double consultation = visit.getConsultationFee() != null ? visit.getConsultationFee() : 500.0;
@@ -102,6 +108,18 @@ public class DoctorDashboardService {
 
         visitRepository.save(visit);
 
+       /* // 🔥🔥🔥 MAIN FIX: जर On-Call असेल तर PDF बनवा आणि DB मध्ये सेव्ह करा 🔥🔥🔥
+        if (visit.getVisitType() == VisitType.ON_CALL) {
+            try {
+                log.info("📄 Generating PDF for On-Call Visit ID: {}", visitId);
+                // null means no stylus drawing (signature), just text
+                prescriptionService.generateAndSavePdf(visitId, request.getPrescription(), null);
+            } catch (Exception e) {
+                log.error("❌ Failed to generate PDF: {}", e.getMessage());
+            }
+        }*/
+        // -------------------------------------------------------------
+
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
@@ -112,13 +130,13 @@ public class DoctorDashboardService {
             }
         });
     }
+
     @Transactional(readOnly = true)
     public List<MedicalHistoryResponse> getPatientHistory(Long patientId) {
         return visitRepository.findByPatientIdOrderByVisitDateDesc(patientId)
                 .stream()
                 .map(v -> {
-                    // ✅ FIXED: Handle list of files here too
-                    List<PrescriptionFile> files = fileRepository.findByVisitId(v.getId());
+                    List<PrescriptionFile> files = fileRepository.findAllByVisitId(v.getId());
                     boolean hasFile = !files.isEmpty();
 
                     String docName = (v.getDoctor() != null) ? v.getDoctor().getName() : "Unknown";

@@ -17,15 +17,18 @@ public class MedicalHistoryResponse {
     private String diagnosis;
     private String prescription;
 
-    // 🩺 Vitals (हे फक्त डॉक्टरांसाठी असतात)
+    // Vitals
     private String bp;
     private String weight;
     private String temp;
 
+    // 🔥 हे फील्ड अत्यंत महत्त्वाचे आहे
     private boolean hasFile;
-    private LocalDate followUpDate;
 
-    // ✅ हे दोन नवीन फील्ड्स (महत्त्वाचे)
+    private LocalDate followUpDate;
     private String doctorName;
     private String clinicName;
+
+    // Visit Type पाठवणे गरजेचे आहे, जेणेकरून ऑरेंज टॅग दिसेल
+    // private VisitType visitType; // (Optional but good for labels)
 }
