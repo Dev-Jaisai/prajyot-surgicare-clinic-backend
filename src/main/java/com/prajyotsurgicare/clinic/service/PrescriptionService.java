@@ -124,6 +124,7 @@ public class PrescriptionService {
                 .orElseThrow(() -> new RuntimeException("Prescription file not found with id: " + fileId));
     }
 
+    @Transactional(readOnly = true) // ✅ Added transaction here to fix Postgres LOB error
     public List<Long> getPrescriptionIds(Long visitId) {
         return fileRepository.findAllByVisitId(visitId)
                 .stream()
@@ -145,14 +146,12 @@ public class PrescriptionService {
                 .collect(Collectors.toList());
     }
 
-    // 🔥🔥 Fix: हे मिसिंग फंक्शन ॲड केले आहे
     @Transactional(readOnly = true)
     public PrescriptionFile getLatestFileByVisitId(Long visitId) {
         List<PrescriptionFile> files = fileRepository.findAllByVisitId(visitId);
         if (files.isEmpty()) {
             throw new RuntimeException("No file found for visit " + visitId);
         }
-        // शेवटची फाईल रिटर्न करा
         return files.get(files.size() - 1);
     }
 }
