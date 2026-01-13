@@ -115,16 +115,16 @@ public class PrescriptionService {
     }
 
     // =================================================================
-    // 3. ✅ GET DATA METHODS
+    // 3. ✅ GET DATA METHODS (Updated with @Transactional)
     // =================================================================
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true) // 🔥 IMP for Postgres LOB
     public PrescriptionFile getFile(Long fileId) {
         return fileRepository.findById(fileId)
                 .orElseThrow(() -> new RuntimeException("Prescription file not found with id: " + fileId));
     }
 
-    @Transactional(readOnly = true) // ✅ Added transaction here to fix Postgres LOB error
+    @Transactional(readOnly = true) // 🔥 IMP: This was missing and causing the crash!
     public List<Long> getPrescriptionIds(Long visitId) {
         return fileRepository.findAllByVisitId(visitId)
                 .stream()
@@ -132,7 +132,7 @@ public class PrescriptionService {
                 .collect(Collectors.toList());
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true) // 🔥 IMP
     public List<PrescriptionView> getRecentPrescriptions(Long patientId) {
         List<PrescriptionFile> files = fileRepository.findRecentByPatientId(patientId);
         return files.stream()
@@ -146,7 +146,7 @@ public class PrescriptionService {
                 .collect(Collectors.toList());
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true) // 🔥 IMP
     public PrescriptionFile getLatestFileByVisitId(Long visitId) {
         List<PrescriptionFile> files = fileRepository.findAllByVisitId(visitId);
         if (files.isEmpty()) {

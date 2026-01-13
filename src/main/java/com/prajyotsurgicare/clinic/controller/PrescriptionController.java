@@ -1,6 +1,6 @@
 package com.prajyotsurgicare.clinic.controller;
 
-import com.prajyotsurgicare.clinic.dto.PrescriptionRequest; // हा DTO खाली बनवावा लागेल
+import com.prajyotsurgicare.clinic.dto.PrescriptionRequest;
 import com.prajyotsurgicare.clinic.dto.PrescriptionView;
 import com.prajyotsurgicare.clinic.entity.PrescriptionFile;
 import com.prajyotsurgicare.clinic.service.PrescriptionService;
@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional; // ✅ Import हे ॲड केले
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -20,11 +21,13 @@ import java.util.List;
 public class PrescriptionController {
 
     private final PrescriptionService prescriptionService;
+
     // ✅ NEW: Get Recent Prescriptions for Patient (History)
     @GetMapping("/patient/{patientId}/recent")
     public ResponseEntity<List<PrescriptionView>> getRecentPrescriptions(@PathVariable Long patientId) {
         return ResponseEntity.ok(prescriptionService.getRecentPrescriptions(patientId));
     }
+
     // 1. 👨‍⚕️ DOCTOR: Generate PDF (Stylus + Text)
     @PostMapping("/{visitId}/generate")
     public ResponseEntity<Void> generatePdf(@PathVariable Long visitId, @RequestBody PrescriptionRequest request) {
@@ -38,7 +41,11 @@ public class PrescriptionController {
         prescriptionService.uploadPrescriptionImage(visitId, file);
         return ResponseEntity.ok().build();
     }
+
+    // 🔥🔥 CRITICAL FIX: Added @Transactional here
+    // हे ॲड केल्यामुळे Postgres LOB एरर येणार नाही
     @GetMapping("/view/{fileId}")
+    @Transactional(readOnly = true)
     public ResponseEntity<byte[]> viewPrescription(@PathVariable Long fileId) {
         try {
             System.out.println("🔍 Attempting to fetch file ID: " + fileId);
@@ -50,7 +57,7 @@ public class PrescriptionController {
             return ResponseEntity.ok()
                     .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + file.getFileName() + "\"")
                     .contentType(MediaType.parseMediaType(file.getFileType()))
-                    .body(file.getData());
+                    .body(file.getData()); // इथेच एरर येत होता, आता @Transactional मुळे तो फिक्स होईल.
         } catch (RuntimeException e) {
             System.err.println("❌ File not found: " + fileId + " - " + e.getMessage());
             return ResponseEntity.notFound().build();
@@ -64,8 +71,9 @@ public class PrescriptionController {
     }
 
     // ⚠️ ANGULAR COMPATIBILITY (Old Endpoint)
-    // Angular अजूनही Visit ID वरून फोटो मागत असेल, तर त्याला "पहिला/लेटेस्ट" फोटो द्या.
+    // 🔥🔥 Fix here as well
     @GetMapping("/{visitId}/view")
+    @Transactional(readOnly = true)
     public ResponseEntity<byte[]> viewPrescriptionByVisitId(@PathVariable Long visitId) {
         try {
             // Service मधून Visit ID नुसार लेटेस्ट फाईल आणा
