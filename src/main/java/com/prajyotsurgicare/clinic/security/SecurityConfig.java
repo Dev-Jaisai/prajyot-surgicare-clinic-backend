@@ -1,4 +1,4 @@
-package com.prajyotsurgicare.clinic.security;
+package com.prajyotsurgicare.clinic.config; // 👈 Package Name चेक कर
 
 import com.prajyotsurgicare.clinic.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
@@ -28,7 +28,6 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable()) // CSRF बंद
                 .cors(cors -> cors.configurationSource(request -> {
                     CorsConfiguration config = new CorsConfiguration();
-
                     // ✅ CORS Master Fix
                     config.setAllowedOriginPatterns(List.of("*"));
                     config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
@@ -39,24 +38,27 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // ✅ 1. Public Endpoints (लॉगिन न करता ॲक्सेस)
                         .requestMatchers(
-                                "/api/auth/**",
+                                "/api/auth/**",  // Standard Path
+                                "/auth/**",      // 🔥 IMP: हे ॲड केले (Flutter ॲप साठी)
                                 "/ws/**",
                                 "/v3/api-docs/**",
-                                "/swagger-ui/**"
+                                "/swagger-ui/**",
+                                "/error"         // Error page access
                         ).permitAll()
+
                         // ✅ Prescription Endpoints - Shared Access
                         .requestMatchers("/api/prescription/**")
                         .hasAnyRole("RECEPTIONIST", "DOCTOR")
-                        // ✅ 2. Shared Access (रिसेप्शनिस्ट आणि डॉक्टर दोघांनाही परवानगी)
-                        // डॉक्टरांना पेशंट ॲड करण्यासाठी आणि डॅशबोर्ड बघण्यासाठी हे गरजेचे आहे.
+
+                        // ✅ 2. Shared Access (रिसेप्शनिस्ट आणि डॉक्टर)
                         .requestMatchers(
                                 "/api/patients/**",
                                 "/api/visits/**",
                                 "/api/dashboard/**",
-                                "/api/visit-types/**"// 👈 हे मिसिंग असू शकते!
+                                "/api/visit-types/**"
                         ).hasAnyRole("RECEPTIONIST", "DOCTOR")
 
-                        // ✅ 3. Doctor Specific (फक्त डॉक्टरांसाठी)
+                        // ✅ 3. Doctor Specific
                         .requestMatchers("/api/doctor/**").hasAnyRole("DOCTOR")
 
                         // 🔒 4. बाकी सर्व रिक्वेस्टना लॉगिन अनिवार्य
